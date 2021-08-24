@@ -3,18 +3,24 @@ package logbook.builtinscript.akakariLog;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import logbook.config.AppConfig;
 import logbook.gui.ApplicationMain;
+import logbook.internal.LoggerHolder;
 import logbook.util.JacksonUtil;
+import org.apache.commons.lang3.time.FastDateFormat;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
 import java.util.*;
 
 /**
  * Created by noratako5 on 2017/10/03.
  */
 public class AkakariSyutsugekiLogReader {
+    private static LoggerHolder LOG = new LoggerHolder("builtinScript");
     private static List<Date> startPortDateList = Collections.synchronizedList(new ArrayList<>());
     private static Map<Date,Date> battleDateToStartPortDateCache = Collections.synchronizedMap(new HashMap<>());
     //private static Map<Date,ArrayNode> battleDateToShipArrayCache = Collections.synchronizedMap(new AkakariCacheMap<>(0));
@@ -124,24 +130,122 @@ public class AkakariSyutsugekiLogReader {
             list.clear();
         }
     }
-
-    public static void loadAllStartPortDate(){
-        List<Path> fileList = AkakariSyutsugekiLogRecorder.allFilePath();
-        if(fileList == null){
+    ///起動時に呼ぶ。現在時刻を除く全ての生ログを圧縮ログに変換
+    public static void allRawLogToZstdLog(){
+        Path now = AkakariSyutsugekiLogRecorder.dateToPathRaw(new Date());
+        List<Path> fileListRaw = AkakariSyutsugekiLogRecorder.allFilePathRaw();
+        if(fileListRaw == null){
             return;
         }
-        fileList
-            .parallelStream()
-            .forEach(path->{
-                AkakariSyutsugekiLog[] logArray = AkakariMapper.readSyutsugekiLogFromMessageZstdFile(path.toFile());
+        fileListRaw.removeIf(path -> path.getFileName().equals(now.getFileName()));
+        for(Path p:fileListRaw){
+            rawLogToZstdLog(p);
+        }
+    }
+    static void rawLogToZstdLog(Path path){
+        ApplicationMain.logPrint(path.getFileName().toString());
+        File dir = new File(AkakariSyutsugekiLogRecorder.syutsugekiLogPath);
+        if(!dir.exists()){
+            if(!dir.mkdirs()){
+                //作成失敗
+                return;
+            }
+        }
+        if(path.getFileName().toString().contains("tmp")){
+            path.toFile().delete();
+            return;
+        }
+        Path pathZstd = AkakariSyutsugekiLogRecorder.rawToZstdPath(path);
+        File dir2 = pathZstd.getParent().toFile();
+        if(!dir2.exists()){
+            if(!dir2.mkdirs()){
+                return;
+            }
+        }
+        AkakariSyutsugekiLog[] logArray = AkakariMapper.readSyutsugekiLogFromMessageRawFile(path.toFile());
+        if(logArray == null){
+            return;
+        }
+        AkakariMapper.writeObjectToMessageZstdFile(logArray,pathZstd.toFile());
+        AkakariSyutsugekiLog[] logArray2 = AkakariMapper.readSyutsugekiLogFromMessageZstdFile(pathZstd.toFile());
+        if(logArray.length == logArray2.length){
+            path.toFile().delete();
+        }
+    }
+    public static void loadAllStartPortDate(){
+        List<Path> fileListRaw = AkakariSyutsugekiLogRecorder.allFilePathRaw();
+        List<Path> fileList = AkakariSyutsugekiLogRecorder.allFilePathWithoutRaw();
+        String lastDate = null;
+        if(fileListRaw != null){
+            for(Path path:fileListRaw){
+                String date = path.getParent().getFileName().toString();
+                if(lastDate == null || !lastDate.equals(date)){
+                    ApplicationMain.logPrint(date);
+                }
+                lastDate = date;
+
+                ApplicationMain.logPrint(path.getFileName().toString());
+                AkakariSyutsugekiLog[] logArray = AkakariMapper.readSyutsugekiLogFromMessageRawFile(path.toFile());
                 if(logArray == null){
-                    return;
+                    continue;
                 }
                 for(AkakariSyutsugekiLog log : logArray){
                     loadStartPortDate(log);
                 }
                 //AkakariSyutsugekiLogRecorder.createJson(path.toFile());
-            });
+            }
+        }
+        if(fileList != null) {
+            for(Path path:fileList){
+                String date = path.getParent().getFileName().toString();
+                if(lastDate == null || !lastDate.equals(date)){
+                    ApplicationMain.logPrint(date);
+                }
+                lastDate = date;
+
+                Path cachePath = AkakariSyutsugekiLogRecorder.zstdToCachePath(path);
+                byte[] digest = null;
+                try {
+                    MessageDigest sha_256 = MessageDigest.getInstance("SHA-256");
+                    digest = sha_256.digest(Files.readAllBytes(path));
+                }
+                catch (Exception e){
+                    LOG.get().warn("hash load failed"+path.getFileName().toString(), e);
+                }
+                AkakariSyutsugekiLogDateCache cache = AkakariMapper.readDateCacheFromMessageRawFile(cachePath.toFile());
+                if(digest != null && cache != null && cache.hash != null && Arrays.equals(digest,cache.hash)){
+                    if(cache.startPortDateArray != null){
+                        Collections.addAll(startPortDateList,cache.startPortDateArray);
+                    }
+                }
+                else {
+                    AkakariSyutsugekiLog[] logArray = AkakariMapper.readSyutsugekiLogFromMessageZstdFile(path.toFile());
+                    if (logArray == null) {
+                        continue;
+                    }
+                    List<Date> list = new ArrayList<>();
+                    for (AkakariSyutsugekiLog log : logArray) {
+                        Date startPortDate = log.start_port.date;
+                        if(startPortDate != null){
+                            list.add(startPortDate);
+                        }
+                    }
+                    startPortDateList.addAll(list);
+
+                    if(digest != null){
+                        AkakariSyutsugekiLogDateCache c =new AkakariSyutsugekiLogDateCache();
+                        c.hash = digest;
+                        c.startPortDateArray = list.toArray(new Date[list.size()]);
+                        File dir2 = cachePath.getParent().toFile();
+                        if(!dir2.exists()){
+                            dir2.mkdirs();
+                        }
+                        AkakariMapper.writeObjectToMessageRawFile(c,cachePath.toFile());
+                    }
+                }
+                //AkakariSyutsugekiLogRecorder.createJson(path.toFile());
+            }
+        }
         Collections.sort(startPortDateList);
     }
     public static void loadStartPortDate(AkakariSyutsugekiLog log){
@@ -179,8 +283,15 @@ public class AkakariSyutsugekiLogReader {
         if(startPortDateToLogCache.containsKey(startPortDate)){
             return startPortDateToLogCache.get(startPortDate);
         }
-        Path path = AkakariSyutsugekiLogRecorder.dateToPath(startPortDate);
-        AkakariSyutsugekiLog[] logArray = zstdFilePathToLogArray(path);
+        AkakariSyutsugekiLog[] logArray = null;
+        {
+            Path pathRaw = AkakariSyutsugekiLogRecorder.dateToPathRaw(startPortDate);
+            logArray = AkakariMapper.readSyutsugekiLogFromMessageRawFile(pathRaw.toFile());
+        }
+        if(logArray == null) {
+            Path path = AkakariSyutsugekiLogRecorder.dateToPath(startPortDate);
+            logArray = zstdFilePathToLogArray(path);
+        }
         if(logArray == null){
             return null;
         }
@@ -201,8 +312,15 @@ public class AkakariSyutsugekiLogReader {
             return startPortDateToNextLogCache.get(startPortDate);
         }
         {
-            Path path = AkakariSyutsugekiLogRecorder.dateToPath(startPortDate);
-            AkakariSyutsugekiLog[] logArray = zstdFilePathToLogArray(path);
+            AkakariSyutsugekiLog[] logArray = null;
+            {
+                Path pathRaw = AkakariSyutsugekiLogRecorder.dateToPathRaw(startPortDate);
+                logArray = AkakariMapper.readSyutsugekiLogFromMessageRawFile(pathRaw.toFile());
+            }
+            if(logArray == null) {
+                Path path = AkakariSyutsugekiLogRecorder.dateToPath(startPortDate);
+                logArray = zstdFilePathToLogArray(path);
+            }
             if (logArray == null) {
                 return null;
             }
@@ -219,8 +337,15 @@ public class AkakariSyutsugekiLogReader {
         Date nextDate = calendar.getTime();
         {
             //時間境界またぐケース考えて次の時間まで探索。それ以上は追わないので1時間以上かけた出撃は探索失敗する
-            Path path = AkakariSyutsugekiLogRecorder.dateToPath(nextDate);
-            AkakariSyutsugekiLog[] logArray = zstdFilePathToLogArray(path);
+            AkakariSyutsugekiLog[] logArray = null;
+            {
+                Path pathRaw = AkakariSyutsugekiLogRecorder.dateToPathRaw(nextDate);
+                logArray = AkakariMapper.readSyutsugekiLogFromMessageRawFile(pathRaw.toFile());
+            }
+            if(logArray == null) {
+                Path path = AkakariSyutsugekiLogRecorder.dateToPath(nextDate);
+                logArray = zstdFilePathToLogArray(path);
+            }
             if (logArray == null) {
                 return null;
             }

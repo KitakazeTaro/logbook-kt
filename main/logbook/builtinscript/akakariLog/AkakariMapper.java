@@ -119,6 +119,17 @@ public class AkakariMapper {
             return null;
         }
     }
+    @Nullable
+    public static byte[] objectToMessageRawBytes(Object object){
+        try {
+            byte[] raw = msgMapper.writeValueAsBytes(object);
+            return raw;
+        }catch (Exception e){
+            LOG.get().warn("mapping",e);
+            return null;
+        }
+    }
+
 
     public static boolean writeObjectToMessageZstdFile(Object object, File file){
         try {
@@ -134,6 +145,22 @@ public class AkakariMapper {
             return false;
         }
     }
+    public static boolean writeObjectToMessageRawFile(Object object, File file){
+        try {
+            byte[] raw = objectToMessageRawBytes(object);
+            if(raw == null){
+                return false;
+            }
+            Files.write(file.toPath(),raw, CREATE);
+            return true;
+        }
+        catch (Exception e){
+            LOG.get().warn("save",e);
+            return false;
+        }
+    }
+
+
 
     @Nullable
     public static JsonNode messageZstdToJsonNode(byte[] compressed){
@@ -159,6 +186,16 @@ public class AkakariMapper {
             return null;
         }
     }
+    public static AkakariSyutsugekiLog[] readSyutsugekiLogFromMessageRawFile(File file){
+        try {
+            byte[] raw = Files.readAllBytes(file.toPath());
+            return msgMapper.readValue(raw,AkakariSyutsugekiLog[].class);
+        }
+        catch (Exception e) {
+            LOG.get().warn("load failed"+file.toString(), e);
+            return null;
+        }
+    }
     @Nullable
     public static AkakariMasterLog[] readMasterLogFromMessageZstdFile(File file){
         try {
@@ -168,6 +205,17 @@ public class AkakariMapper {
         }
         catch (Exception e) {
             LOG.get().warn("load failed", e);
+            return null;
+        }
+    }
+    @Nullable
+    public static AkakariSyutsugekiLogDateCache readDateCacheFromMessageRawFile(File file){
+        try {
+            byte[] raw = Files.readAllBytes(file.toPath());
+            return msgMapper.readValue(raw,AkakariSyutsugekiLogDateCache.class);
+        }
+        catch (Exception e) {
+            LOG.get().warn("load failed"+file.toString(), e);
             return null;
         }
     }

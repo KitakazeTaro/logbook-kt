@@ -4,11 +4,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import logbook.data.AkakariData;
 import logbook.data.DataType;
 import logbook.internal.LoggerHolder;
+import org.apache.commons.lang3.time.FastDateFormat;
 
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
+import java.util.TimeZone;
 
 /**
  * Created by noratako5 on 2017/10/02.
@@ -30,12 +33,15 @@ public class AkakariMasterLogRecorder {
                 }
             }
             File file = new File(masterLogPath+File.separator+"master.dat");
+            File fileTmp = new File(masterLogPath+File.separator+"master_tmp.dat");
             ArrayList<AkakariMasterLog>list = new ArrayList<>();
             if(file.exists() && file.length() > 0){
                 AkakariMasterLog[] array = AkakariMapper.readMasterLogFromMessageZstdFile(file);
                 if(array == null){
                     LOG.get().warn("ロード失敗");
-                    File file2 = new File(masterLogPath+File.separator+"master_error.dat");
+                    FastDateFormat timeFormat =  FastDateFormat.getInstance("HH-mm-ss-SSS", TimeZone.getTimeZone("JST"));
+                    String time = timeFormat.format(new Date());
+                    File file2 = new File(masterLogPath+File.separator+"master_error_"+ time +".dat");
                     file.renameTo(file2);
                 }
                 else {
@@ -56,7 +62,21 @@ public class AkakariMasterLogRecorder {
             }
             list.add(log);
             AkakariMasterLog[] result = list.toArray(new AkakariMasterLog[0]);
-            AkakariMapper.writeObjectToMessageZstdFile(result,file);
+            AkakariMapper.writeObjectToMessageZstdFile(result,fileTmp);
+            AkakariMasterLog[] result2 = AkakariMapper.readMasterLogFromMessageZstdFile(fileTmp);
+            if(result.length == result2.length){
+                while(file.exists()) {
+                    if(!file.delete()){
+                        Thread.sleep(100);
+                    }
+                }
+                if(fileTmp.renameTo(file)) {
+                    fileTmp.delete();
+                }
+            }
+            else{
+                LOG.get().warn("保存失敗");
+            }
             AkakariMasterLogReader.updateMasterDateList(result);
         }
         catch (Exception e){

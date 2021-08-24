@@ -188,8 +188,16 @@ public final class BackgroundInitializer extends Thread {
             LOG.get().warn("赤仮出撃ログのコンバートに失敗しました (" + AppConfig.get().getBattleLogPath() + ")", e);
         }
         try{
-            ApplicationMain.logPrint("赤仮出撃ログ読み込み中");
+            ApplicationMain.logPrint("赤仮出撃ログの圧縮開始");
+            AkakariSyutsugekiLogReader.allRawLogToZstdLog();
+            ApplicationMain.logPrint("赤仮出撃ログの圧縮完了");
+        }catch (Exception e){
+            LOG.get().warn("赤仮出撃ログの圧縮に失敗しました (" + AppConfig.get().getBattleLogPath() + ")", e);
+        }
+        try{
+            ApplicationMain.logPrint("赤仮出撃ログの読み込み中");
             AkakariSyutsugekiLogReader.loadAllStartPortDate();
+            ApplicationMain.logPrint("赤仮出撃ログの読み込み完了");
         }catch (Exception e) {
             LOG.get().warn("赤仮出撃ログの読み込みに失敗しました (" + AppConfig.get().getBattleLogPath() + ")", e);
         }

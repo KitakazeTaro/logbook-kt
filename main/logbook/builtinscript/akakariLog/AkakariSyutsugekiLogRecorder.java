@@ -27,6 +27,8 @@ public class AkakariSyutsugekiLogRecorder {
 
     static private String syutsugekiLogPathOld = new File("akakariLog" + File.separator + "syutsugeki").getAbsolutePath();
     static public String syutsugekiLogPath = new File("akakariLog" + File.separator + "syutsugeki2").getAbsolutePath();
+    static public String syutsugekiLogPathDateCache = new File("akakariLog" + File.separator + "syutsugekiDateCache").getAbsolutePath();
+    static public  String syutsugekiLogPathRaw = new File("akakariLog" + File.separator + "syutsugekiRaw").getAbsolutePath();
 
     ///slotitemMember取得時点でリセット。
     ///糞重いので必要な装備だけ保存する。
@@ -74,7 +76,7 @@ public class AkakariSyutsugekiLogRecorder {
     }
 
     private static void saveData(AkakariSyutsugekiLog log){
-        File dir = new File(syutsugekiLogPath);
+        File dir = new File(syutsugekiLogPathRaw);
         if(!dir.exists()){
             if(!dir.mkdirs()){
                 //作成失敗
@@ -84,7 +86,7 @@ public class AkakariSyutsugekiLogRecorder {
         }
         try {
             {
-                File dir2 = dateToDirPath(log.start_port.date).toFile();
+                File dir2 = dateToDirPathRaw(log.start_port.date).toFile();
                 if(!dir2.exists()){
                     if(!dir2.mkdirs()){
                         //作成失敗
@@ -93,13 +95,26 @@ public class AkakariSyutsugekiLogRecorder {
                     }
                 }
             }
+            File fileRaw = dateToPathRaw(log.start_port.date).toFile();
+            File fileRawTmp = dateToPathRawTmp(log.start_port.date).toFile();
             File file = dateToPath(log.start_port.date).toFile();
             ArrayList<AkakariSyutsugekiLog> list = new ArrayList<>();
-            if(file.exists() && file.length() > 0){
+            if(fileRaw.exists() && fileRaw.length() > 0){
+                AkakariSyutsugekiLog[] array = AkakariMapper.readSyutsugekiLogFromMessageRawFile(fileRaw);
+                if(array == null){
+                    LOG.get().warn("ロード失敗");
+                    File file2Raw = dateToNextErrorPathRaw(log.start_port.date).toFile();
+                    fileRaw.renameTo(file2Raw);
+                }
+                else {
+                    list.addAll(Arrays.asList(array));
+                }
+            }
+            else if(file.exists() && file.length() > 0){
                 AkakariSyutsugekiLog[] array = AkakariMapper.readSyutsugekiLogFromMessageZstdFile(file);
                 if(array == null){
                     LOG.get().warn("ロード失敗");
-                    File file2 = dateToErrorPath(log.start_port.date).toFile();
+                    File file2 = dateToNextErrorPath(log.start_port.date).toFile();
                     file.renameTo(file2);
                 }
                 else {
@@ -108,8 +123,19 @@ public class AkakariSyutsugekiLogRecorder {
             }
             list.add(log);
             AkakariSyutsugekiLog[] result = list.toArray(new AkakariSyutsugekiLog[0]);
-            AkakariSyutsugekiLogReader.updateLogFile(file.toPath(),result);
-            AkakariMapper.writeObjectToMessageZstdFile(result,file);
+            AkakariSyutsugekiLogReader.updateLogFile(fileRaw.toPath(),result);
+            AkakariMapper.writeObjectToMessageRawFile(result,fileRawTmp);
+            AkakariSyutsugekiLog[] result2 = AkakariMapper.readSyutsugekiLogFromMessageRawFile(fileRawTmp);
+            if(result.length == result2.length){
+                while(fileRaw.exists()) {
+                    if(!fileRaw.delete()){
+                        Thread.sleep(100);
+                    }
+                }
+                if(fileRawTmp.renameTo(fileRaw)) {
+                    fileRawTmp.delete();
+                }
+            }
             AkakariSyutsugekiLogReader.loadStartPortDate(log);
             //AkakariMapper.writeObjectToJsonFile(result,new File(syutsugekiLogPath+File.separator+"syutsugeki"+date+".json"));
         }
@@ -140,10 +166,38 @@ public class AkakariSyutsugekiLogRecorder {
         File file = new File(dateToDirPath(startPortDate).toString()+File.separator+"syutsugeki"+dateHour+".dat");
         return file.toPath();
     }
-    public static Path dateToErrorPath(Date startPortDate){
+    @NotNull
+    public static Path dateToPathRaw(Date startPortDate){
         FastDateFormat format =  FastDateFormat.getInstance("yyyy-MM-dd_HH", TimeZone.getTimeZone("JST"));
         String dateHour = format.format(startPortDate);
-        File file = new File(dateToDirPath(startPortDate).toString()+File.separator+"syutsugeki"+dateHour+"_error.dat");
+        File file = new File(dateToDirPathRaw(startPortDate).toString()+File.separator+"syutsugeki"+dateHour+".dat");
+        return file.toPath();
+    }
+    @NotNull
+    public static Path dateToPathRawTmp(Date startPortDate){
+        FastDateFormat format =  FastDateFormat.getInstance("yyyy-MM-dd_HH", TimeZone.getTimeZone("JST"));
+        String dateHour = format.format(startPortDate);
+        File file = new File(dateToDirPathRaw(startPortDate).toString()+File.separator+"syutsugeki_tmp_"+dateHour+".dat");
+        return file.toPath();
+    }
+    ///現在時刻ベースで被らないパス
+    @NotNull
+    public static Path dateToNextErrorPath(Date startPortDate){
+        FastDateFormat format =  FastDateFormat.getInstance("yyyy-MM-dd_HH", TimeZone.getTimeZone("JST"));
+        String dateHour = format.format(startPortDate);
+        FastDateFormat timeFormat =  FastDateFormat.getInstance("HH-mm-ss-SSS", TimeZone.getTimeZone("JST"));
+        String time = timeFormat.format(startPortDate);
+        File file = new File(dateToDirPath(startPortDate).toString()+File.separator+"syutsugeki"+dateHour+"_error_"+ time +".dat");
+        return file.toPath();
+    }
+    ///現在時刻ベースで被らないパス
+    @NotNull
+    public static Path dateToNextErrorPathRaw(Date startPortDate){
+        FastDateFormat format =  FastDateFormat.getInstance("yyyy-MM-dd_HH", TimeZone.getTimeZone("JST"));
+        String dateHour = format.format(startPortDate);
+        FastDateFormat timeFormat =  FastDateFormat.getInstance("HH-mm-ss-SSS", TimeZone.getTimeZone("JST"));
+        String time = timeFormat.format(startPortDate);
+        File file = new File(dateToDirPathRaw(startPortDate).toString()+File.separator+"syutsugeki"+dateHour+"_error_"+ time +".dat");
         return file.toPath();
     }
     @NotNull
@@ -153,13 +207,37 @@ public class AkakariSyutsugekiLogRecorder {
         File file = new File(syutsugekiLogPath+File.separator+date);
         return file.toPath();
     }
+    @NotNull
+    public static Path dateToDirPathRaw(Date startPortDate){
+        FastDateFormat formatDate =  FastDateFormat.getInstance("yyyy-MM-dd", TimeZone.getTimeZone("JST"));
+        String date = formatDate.format(startPortDate);
+        File file = new File(syutsugekiLogPathRaw+File.separator+date);
+        return file.toPath();
+    }
     public static Path dateToPathOld(Date startPortDate){
         FastDateFormat format =  FastDateFormat.getInstance("yyyy-MM-dd", TimeZone.getTimeZone("JST"));
         String date = format.format(startPortDate);
         File file = new File(syutsugekiLogPathOld+File.separator+"syutsugeki"+date+".dat");
         return file.toPath();
     }
-
+    public static Path zstdToRawPath(Path zstd){
+        String filename = zstd.getFileName().toString();
+        String dirName = zstd.getParent().getFileName().toString();
+        File file = new File(syutsugekiLogPathRaw+File.separator+dirName+File.separator+filename);
+        return  file.toPath();
+    }
+    public static Path rawToZstdPath(Path raw){
+        String filename = raw.getFileName().toString();
+        String dirName = raw.getParent().getFileName().toString();
+        File file = new File(syutsugekiLogPath+File.separator+dirName+File.separator+filename);
+        return  file.toPath();
+    }
+    public static Path zstdToCachePath(Path zstd){
+        String filename = zstd.getFileName().toString();
+        String dirName = zstd.getParent().getFileName().toString();
+        File file = new File(syutsugekiLogPathDateCache+File.separator+dirName+File.separator+filename);
+        return  file.toPath();
+    }
     @Nullable
     public static List<Path> allFilePath(){
         Path path = (new File(syutsugekiLogPath)).toPath();
@@ -170,6 +248,43 @@ public class AkakariSyutsugekiLogRecorder {
                 for(Path p : allDir){
                     allPath.addAll(Files.list(p).collect(Collectors.toList()));
                 }
+                allPath.removeIf(p -> p.getFileName().toString().contains("error"));
+                return allPath;
+            } catch (Exception e) {
+                LOG.get().warn("読み込み失敗", e);
+                return null;
+            }
+        }
+        else {
+            return null;
+        }
+    }
+    ///rawファイルが存在しないzstdのみ対象
+    @Nullable
+    public static List<Path> allFilePathWithoutRaw(){
+        Path path = (new File(syutsugekiLogPath)).toPath();
+        if(Files.exists(path)) {
+            List<Path> allPath = allFilePath();
+            if(allPath != null) {
+                allPath.removeIf(p -> AkakariSyutsugekiLogRecorder.zstdToRawPath(p).toFile().exists());
+            }
+            return allPath;
+        }
+        else {
+            return null;
+        }
+    }
+    @Nullable
+    public static List<Path> allFilePathRaw(){
+        Path path = (new File(syutsugekiLogPathRaw)).toPath();
+        if(Files.exists(path)) {
+            try {
+                List<Path> allDir = Files.list(path).collect(Collectors.toList());
+                ArrayList<Path> allPath = new ArrayList<>();
+                for(Path p : allDir){
+                    allPath.addAll(Files.list(p).collect(Collectors.toList()));
+                }
+                allPath.removeIf(p -> p.getFileName().toString().contains("error"));
                 return allPath;
             } catch (Exception e) {
                 LOG.get().warn("読み込み失敗", e);
