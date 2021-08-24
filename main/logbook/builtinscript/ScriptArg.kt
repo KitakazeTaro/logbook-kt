@@ -233,11 +233,17 @@ data class BattleCache(
     val dateString:String
         get(){
             if(dateStringOrNull == null) {
-                try {
-                    val format = FastDateFormat.getInstance(AppConfig.get().builtinDateFormat, TimeZone.getTimeZone("JST"))
-                    dateStringOrNull = format.format(this.battle.battleDate)
-                    //dateStringOrNull = DateTimeString.toString(this.battle.battleDate)
-                } catch (ex: Exception) {
+                val formatString = AppConfig.get().builtinDateFormat ?: ""
+                if (formatString.length >  0) {
+                    try {
+                        val format = FastDateFormat.getInstance(AppConfig.get().builtinDateFormat, TimeZone.getTimeZone("JST"))
+                        dateStringOrNull = format.format(this.battle.battleDate)
+                        //dateStringOrNull = DateTimeString.toString(this.battle.battleDate)
+                    } catch (ex: Exception) {
+                        dateStringOrNull = DateTimeString.toString(this.battle.battleDate)
+                    }
+                }
+                else{
                     dateStringOrNull = DateTimeString.toString(this.battle.battleDate)
                 }
             }

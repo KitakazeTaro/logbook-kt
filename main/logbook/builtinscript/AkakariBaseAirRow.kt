@@ -2,15 +2,21 @@ package logbook.builtinscript
 
 import com.google.gson.internal.LinkedTreeMap
 import logbook.builtinscript.akakariLog.AkakariSyutsugekiLogReader
+import logbook.config.AppConfig
+import logbook.constants.AppConstants
 import logbook.dto.AirBattleDto
+import logbook.gui.logic.DateTimeString
 import logbook.internal.Item
 import logbook.scripting.BuiltinScriptFilter
 import logbook.util.GsonUtil
+import org.apache.commons.lang3.time.FastDateFormat
 import java.util.*
 
 
 fun AkakariBaseAirRowHeader(): ArrayList<String> {
     val header = DamageDayNightRowHeader()
+    header.add("出撃母港時刻")
+    header.add("帰投母港時刻")
     header.add("航空隊")
     header.add("攻撃順")
     header.add("基地自触接")
@@ -35,12 +41,13 @@ fun AkakariBaseAirRowHeader(): ArrayList<String> {
     header.add("ステージ2.自艦載機喪失数")
     header.add("ステージ2.敵艦載機総数")
     header.add("ステージ2.敵艦載機喪失数")
-
     for (i in 1..7) {
         val index = i.toString()
         ShipSummaryRowHeader()
                 .forEach { s -> header.add("攻撃艦$index.$s") }
     }
+    header.add("雷撃合計")
+    header.add("爆撃合計")
     header.add("雷撃")
     header.add("爆撃")
     header.add("クリティカル")
@@ -61,6 +68,18 @@ private fun AkakariBaseAirRowBodyConstruct(
 )
 {
     val date = arg.battle.battleDate
+
+    var format:FastDateFormat = FastDateFormat.getInstance(AppConstants.DATE_FORMAT)
+    val formatString = AppConfig.get().builtinDateFormat ?: ""
+    if (formatString.length >  0) {
+        try {
+            format = FastDateFormat.getInstance(AppConfig.get().builtinDateFormat, TimeZone.getTimeZone("JST"))
+        } catch (ex: Exception) {
+        }
+    }
+
+
+
     val startAirBase = AkakariSyutsugekiLogReader.battleDateToStartAirBaseData(date)
     if(startAirBase == null){
         return
@@ -79,6 +98,8 @@ private fun AkakariBaseAirRowBodyConstruct(
     val baseId = GsonUtil.toInt(api_kouku["api_base_id"]);
     val prevHP = startHP
     val rowHead = DamageDayRowBodyAir(arg,air)
+    rowHead.add(format.format(startAirBase.date))
+    rowHead.add(format.format(endAirBase.date))
     rowHead.add(GsonUtil.toIntString(api_kouku["api_base_id"])?:"")
     rowHead.add((airIndex+1).toString())
     val api_stage1 = api_kouku["api_stage1"] as? LinkedTreeMap<*, *>
@@ -125,11 +146,29 @@ private fun AkakariBaseAirRowBodyConstruct(
     rowHead.add(GsonUtil.toIntString(api_stage2?.get("api_e_count"))?:"")
     rowHead.add(GsonUtil.toIntString(api_stage2?.get("api_e_lostcount"))?:"")
     val api_stage3 = api_kouku["api_stage3"] as? LinkedTreeMap<*, *>
+    val combined = api_kouku["api_stage3_combined"] as? LinkedTreeMap<*, *>
+    var eraiSum = 0
+    var ebakSum = 0
+
+    api_stage3?.run {
+        val erai_flag = GsonUtil.toIntArray(this["api_erai_flag"])
+        val ebak_flag = GsonUtil.toIntArray(this["api_ebak_flag"])
+        eraiSum += erai_flag.sumBy { x -> if (x == 1)  1 else 0 } ?: 0
+        ebakSum += ebak_flag.sumBy { x -> if (x == 1) 1 else 0} ?: 0
+    }
+    combined?.run {
+        val erai_flag = GsonUtil.toIntArray(this["api_erai_flag"])
+        val ebak_flag = GsonUtil.toIntArray(this["api_ebak_flag"])
+        eraiSum += erai_flag.sumBy { x -> if (x == 1)  1 else 0 } ?: 0
+        ebakSum += ebak_flag.sumBy { x -> if (x == 1) 1 else 0} ?: 0
+    }
+
     api_stage3?.run{
         val erai_flag = GsonUtil.toIntArray(this["api_erai_flag"])
         val ebak_flag = GsonUtil.toIntArray(this["api_ebak_flag"])
         val ecl_flag = GsonUtil.toIntArray(this["api_ecl_flag"])
         val edam = GsonUtil.toDoubleArray(this["api_edam"])
+
         if(arg.isSplitHp){
             for (df in 0..6) {
                 if (arg.battle.enemy.size <= df) {
@@ -137,6 +176,8 @@ private fun AkakariBaseAirRowBodyConstruct(
                 }
                 val row = ArrayList<String>(rowHead)
                 arg.friendSummaryRows.forEach { b -> row.addAll(b) }
+                row.add(eraiSum.toString())
+                row.add(ebakSum.toString())
                 row.add(erai_flag?.tryGet(df)?.toString() ?: "")
                 row.add(ebak_flag?.tryGet(df)?.toString() ?: "")
                 row.add(ecl_flag?.tryGet(df)?.toString() ?: "")
@@ -155,6 +196,8 @@ private fun AkakariBaseAirRowBodyConstruct(
                 }
                 val row = ArrayList<String>(rowHead)
                 arg.friendSummaryRows.forEach { b -> row.addAll(b) }
+                row.add(eraiSum.toString())
+                row.add(ebakSum.toString())
                 row.add(erai_flag?.tryGet(df)?.toString() ?: "")
                 row.add(ebak_flag?.tryGet(df)?.toString() ?: "")
                 row.add(ecl_flag?.tryGet(df)?.toString() ?: "")
@@ -167,7 +210,7 @@ private fun AkakariBaseAirRowBodyConstruct(
             }
         }
     }
-    val combined = api_kouku["api_stage3_combined"] as? LinkedTreeMap<*, *>
+
     combined?.run {
         val erai_flag = GsonUtil.toIntArray(this["api_erai_flag"])
         val ebak_flag = GsonUtil.toIntArray(this["api_ebak_flag"])
@@ -180,6 +223,8 @@ private fun AkakariBaseAirRowBodyConstruct(
                 }
                 val row = ArrayList<String>(rowHead)
                 arg.friendSummaryRows.forEach { b -> row.addAll(b) }
+                row.add(eraiSum.toString())
+                row.add(ebakSum.toString())
                 row.add(erai_flag.tryGet(df)?.toString() ?: "")
                 row.add(ebak_flag?.tryGet(df)?.toString() ?: "")
                 row.add(ecl_flag?.tryGet(df)?.toString() ?: "")
@@ -198,6 +243,8 @@ private fun AkakariBaseAirRowBodyConstruct(
                 }
                 val row = ArrayList<String>(rowHead)
                 arg.friendSummaryRows.forEach { b -> row.addAll(b) }
+                row.add(eraiSum.toString())
+                row.add(ebakSum.toString())
                 row.add(erai_flag.tryGet(df)?.toString() ?: "")
                 row.add(ebak_flag?.tryGet(df)?.toString() ?: "")
                 row.add(ecl_flag?.tryGet(df)?.toString() ?: "")

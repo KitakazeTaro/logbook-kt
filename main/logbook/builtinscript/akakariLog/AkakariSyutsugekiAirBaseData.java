@@ -6,10 +6,14 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import logbook.util.JacksonUtil;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Date;
+
 /**
  * Created by noratako5 on 2017/10/13.
  */
 public class AkakariSyutsugekiAirBaseData {
+    ///直前の母港時間
+    public Date date;
     public ArrayNode airBase;
     public ArrayNode slot_item;
     @Nullable

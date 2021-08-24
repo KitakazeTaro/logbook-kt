@@ -33,6 +33,8 @@ fun BaseAirRowHeader(): ArrayList<String> {
         ShipSummaryRowHeader()
                 .forEach { s -> header.add("攻撃艦$index.$s") }
     }
+    header.add("雷撃合計")
+    header.add("爆撃合計")
     header.add("雷撃")
     header.add("爆撃")
     header.add("クリティカル")
@@ -79,6 +81,23 @@ private fun BaseAirRowBodyConstruct(
     rowHead.add(GsonUtil.toIntString(api_stage2?.get("api_e_count"))?:"")
     rowHead.add(GsonUtil.toIntString(api_stage2?.get("api_e_lostcount"))?:"")
     val api_stage3 = api_kouku["api_stage3"] as? LinkedTreeMap<*, *>
+    val combined = api_kouku["api_stage3_combined"] as? LinkedTreeMap<*, *>
+    var eraiSum = 0
+    var ebakSum = 0
+
+    api_stage3?.run {
+        val erai_flag = GsonUtil.toIntArray(this["api_erai_flag"])
+        val ebak_flag = GsonUtil.toIntArray(this["api_ebak_flag"])
+        eraiSum += erai_flag.sumBy { x -> if (x == 1)  1 else 0 } ?: 0
+        ebakSum += ebak_flag.sumBy { x -> if (x == 1) 1 else 0} ?: 0
+    }
+    combined?.run {
+        val erai_flag = GsonUtil.toIntArray(this["api_erai_flag"])
+        val ebak_flag = GsonUtil.toIntArray(this["api_ebak_flag"])
+        eraiSum += erai_flag.sumBy { x -> if (x == 1)  1 else 0 } ?: 0
+        ebakSum += ebak_flag.sumBy { x -> if (x == 1) 1 else 0} ?: 0
+    }
+
     api_stage3?.run{
         val erai_flag = GsonUtil.toIntArray(this["api_erai_flag"])
         val ebak_flag = GsonUtil.toIntArray(this["api_ebak_flag"])
@@ -91,6 +110,8 @@ private fun BaseAirRowBodyConstruct(
                 }
                 val row = ArrayList<String>(rowHead)
                 arg.friendSummaryRows.forEach { b -> row.addAll(b) }
+                row.add(eraiSum.toString())
+                row.add(ebakSum.toString())
                 row.add(erai_flag?.tryGet(df)?.toString() ?: "")
                 row.add(ebak_flag?.tryGet(df)?.toString() ?: "")
                 row.add(ecl_flag?.tryGet(df)?.toString() ?: "")
@@ -109,6 +130,8 @@ private fun BaseAirRowBodyConstruct(
                 }
                 val row = ArrayList<String>(rowHead)
                 arg.friendSummaryRows.forEach { b -> row.addAll(b) }
+                row.add(eraiSum.toString())
+                row.add(ebakSum.toString())
                 row.add(erai_flag?.tryGet(df)?.toString() ?: "")
                 row.add(ebak_flag?.tryGet(df)?.toString() ?: "")
                 row.add(ecl_flag?.tryGet(df)?.toString() ?: "")
@@ -121,7 +144,6 @@ private fun BaseAirRowBodyConstruct(
             }
         }
     }
-    val combined = api_kouku["api_stage3_combined"] as? LinkedTreeMap<*, *>
     combined?.run {
         val erai_flag = GsonUtil.toIntArray(this["api_erai_flag"])
         val ebak_flag = GsonUtil.toIntArray(this["api_ebak_flag"])
@@ -134,6 +156,8 @@ private fun BaseAirRowBodyConstruct(
                 }
                 val row = ArrayList<String>(rowHead)
                 arg.friendSummaryRows.forEach { b -> row.addAll(b) }
+                row.add(eraiSum.toString())
+                row.add(ebakSum.toString())
                 row.add(erai_flag.tryGet(df)?.toString() ?: "")
                 row.add(ebak_flag?.tryGet(df)?.toString() ?: "")
                 row.add(ecl_flag?.tryGet(df)?.toString() ?: "")
@@ -152,6 +176,8 @@ private fun BaseAirRowBodyConstruct(
                 }
                 val row = ArrayList<String>(rowHead)
                 arg.friendSummaryRows.forEach { b -> row.addAll(b) }
+                row.add(eraiSum.toString())
+                row.add(ebakSum.toString())
                 row.add(erai_flag.tryGet(df)?.toString() ?: "")
                 row.add(ebak_flag?.tryGet(df)?.toString() ?: "")
                 row.add(ecl_flag?.tryGet(df)?.toString() ?: "")

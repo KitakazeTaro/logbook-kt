@@ -145,7 +145,11 @@ public class AkakariSyutsugekiLog {
     ///補給などの操作を加える前の初期基地航空
     @JsonIgnore
     public AkakariSyutsugekiAirBaseData firstAirBase(){
-        if(this.firstAirBase != null){
+        return this.firstAirBase(false);
+    }
+    @JsonIgnore
+    public AkakariSyutsugekiAirBaseData firstAirBase(Boolean force){
+        if(this.firstAirBase != null && !force){
             return this.firstAirBase;
         }
         for(AkakariSyutsugekiData data : this.data){
@@ -155,6 +159,7 @@ public class AkakariSyutsugekiLog {
                     AkakariSyutsugekiAirBaseData airBaseData = new AkakariSyutsugekiAirBaseData();
                     airBaseData.airBase = (ArrayNode)node;
                     airBaseData.slot_item = data.slot_item;
+                    airBaseData.date = this.start_port.date;
                     this.firstAirBase = airBaseData;
                     return airBaseData;
                 }
@@ -171,7 +176,7 @@ public class AkakariSyutsugekiLog {
         if(this.lastAirBase != null){
             return this.lastAirBase;
         }
-        AkakariSyutsugekiAirBaseData airBase = this.firstAirBase();
+        AkakariSyutsugekiAirBaseData airBase = this.firstAirBase(true);
         if(airBase == null || airBase.airBase == null || airBase.slot_item == null){
             return null;
         }
