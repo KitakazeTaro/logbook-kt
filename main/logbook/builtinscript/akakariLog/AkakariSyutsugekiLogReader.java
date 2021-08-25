@@ -178,11 +178,11 @@ public class AkakariSyutsugekiLogReader {
         String lastDate = null;
         if(fileListRaw != null){
             for(Path path:fileListRaw){
-                String date = path.getParent().getFileName().toString();
-                if(lastDate == null || !lastDate.equals(date)){
-                    ApplicationMain.logPrint(date);
-                }
-                lastDate = date;
+//                String date = path.getParent().getFileName().toString();
+//                if(lastDate == null || !lastDate.equals(date)){
+//                    ApplicationMain.logPrint(date);
+//                }
+//                lastDate = date;
 
                 ApplicationMain.logPrint(path.getFileName().toString());
                 AkakariSyutsugekiLog[] logArray = AkakariMapper.readSyutsugekiLogFromMessageRawFile(path.toFile());
@@ -196,55 +196,50 @@ public class AkakariSyutsugekiLogReader {
             }
         }
         if(fileList != null) {
-            for(Path path:fileList){
-                String date = path.getParent().getFileName().toString();
-                if(lastDate == null || !lastDate.equals(date)){
-                    ApplicationMain.logPrint(date);
-                }
-                lastDate = date;
-
-                Path cachePath = AkakariSyutsugekiLogRecorder.zstdToCachePath(path);
-                byte[] digest = null;
-                try {
-                    MessageDigest sha_256 = MessageDigest.getInstance("SHA-256");
-                    digest = sha_256.digest(Files.readAllBytes(path));
-                }
-                catch (Exception e){
-                    LOG.get().warn("hash load failed"+path.getFileName().toString(), e);
-                }
-                AkakariSyutsugekiLogDateCache cache = AkakariMapper.readDateCacheFromMessageRawFile(cachePath.toFile());
-                if(digest != null && cache != null && cache.hash != null && Arrays.equals(digest,cache.hash)){
-                    if(cache.startPortDateArray != null){
-                        Collections.addAll(startPortDateList,cache.startPortDateArray);
+            fileList
+                .parallelStream()
+                .forEach(path -> {
+                    Path cachePath = AkakariSyutsugekiLogRecorder.zstdToCachePath(path);
+                    byte[] digest = null;
+                    try {
+                        MessageDigest sha_256 = MessageDigest.getInstance("SHA-256");
+                        digest = sha_256.digest(Files.readAllBytes(path));
                     }
-                }
-                else {
-                    AkakariSyutsugekiLog[] logArray = AkakariMapper.readSyutsugekiLogFromMessageZstdFile(path.toFile());
-                    if (logArray == null) {
-                        continue;
+                    catch (Exception e){
+                        LOG.get().warn("hash load failed"+path.getFileName().toString(), e);
                     }
-                    List<Date> list = new ArrayList<>();
-                    for (AkakariSyutsugekiLog log : logArray) {
-                        Date startPortDate = log.start_port.date;
-                        if(startPortDate != null){
-                            list.add(startPortDate);
+                    AkakariSyutsugekiLogDateCache cache = AkakariMapper.readDateCacheFromMessageRawFile(cachePath.toFile());
+                    if(digest != null && cache != null && cache.hash != null && Arrays.equals(digest,cache.hash)){
+                        if(cache.startPortDateArray != null){
+                            Collections.addAll(startPortDateList,cache.startPortDateArray);
                         }
                     }
-                    startPortDateList.addAll(list);
-
-                    if(digest != null){
-                        AkakariSyutsugekiLogDateCache c =new AkakariSyutsugekiLogDateCache();
-                        c.hash = digest;
-                        c.startPortDateArray = list.toArray(new Date[list.size()]);
-                        File dir2 = cachePath.getParent().toFile();
-                        if(!dir2.exists()){
-                            dir2.mkdirs();
+                    else {
+                        AkakariSyutsugekiLog[] logArray = AkakariMapper.readSyutsugekiLogFromMessageZstdFile(path.toFile());
+                        if (logArray == null) {
+                            return;
                         }
-                        AkakariMapper.writeObjectToMessageRawFile(c,cachePath.toFile());
+                        List<Date> list = new ArrayList<>();
+                        for (AkakariSyutsugekiLog log : logArray) {
+                            Date startPortDate = log.start_port.date;
+                            if(startPortDate != null){
+                                list.add(startPortDate);
+                            }
+                        }
+                        startPortDateList.addAll(list);
+
+                        if(digest != null){
+                            AkakariSyutsugekiLogDateCache c =new AkakariSyutsugekiLogDateCache();
+                            c.hash = digest;
+                            c.startPortDateArray = list.toArray(new Date[list.size()]);
+                            File dir2 = cachePath.getParent().toFile();
+                            if(!dir2.exists()){
+                                dir2.mkdirs();
+                            }
+                            AkakariMapper.writeObjectToMessageRawFile(c,cachePath.toFile());
+                        }
                     }
-                }
-                //AkakariSyutsugekiLogRecorder.createJson(path.toFile());
-            }
+                });
         }
         Collections.sort(startPortDateList);
     }
