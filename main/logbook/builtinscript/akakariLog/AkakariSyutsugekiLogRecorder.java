@@ -28,6 +28,7 @@ public class AkakariSyutsugekiLogRecorder {
     static private String syutsugekiLogPathOld = new File("akakariLog" + File.separator + "syutsugeki").getAbsolutePath();
     static public String syutsugekiLogPath = new File("akakariLog" + File.separator + "syutsugeki2").getAbsolutePath();
     static public String syutsugekiLogPathDateCache = new File("akakariLog" + File.separator + "syutsugekiDateCache").getAbsolutePath();
+    static public String syutsugekiLogPathDateCache2 = new File("akakariLog" + File.separator + "syutsugekiDateCache2.dat").getAbsolutePath();
     static public  String syutsugekiLogPathRaw = new File("akakariLog" + File.separator + "syutsugekiRaw").getAbsolutePath();
 
     ///slotitemMember取得時点でリセット。

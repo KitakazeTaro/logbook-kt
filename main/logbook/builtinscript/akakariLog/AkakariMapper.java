@@ -209,10 +209,11 @@ public class AkakariMapper {
         }
     }
     @Nullable
-    public static AkakariSyutsugekiLogDateCache readDateCacheFromMessageRawFile(File file){
+    public static AkakariSyutsugekiLogDateCache2 readDateCacheFromMessageZstdFile(File file){
         try {
-            byte[] raw = Files.readAllBytes(file.toPath());
-            return msgMapper.readValue(raw,AkakariSyutsugekiLogDateCache.class);
+            byte[] compressed = Files.readAllBytes(file.toPath());
+            byte[] raw = Zstd.decompress(compressed,(int)Zstd.decompressedSize(compressed));
+            return msgMapper.readValue(raw,AkakariSyutsugekiLogDateCache2.class);
         }
         catch (Exception e) {
             LOG.get().warn("load failed"+file.toString(), e);

@@ -7,6 +7,7 @@ import logbook.config.AppConfig;
 import logbook.gui.ApplicationMain;
 import logbook.internal.LoggerHolder;
 import logbook.util.JacksonUtil;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.time.FastDateFormat;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,6 +28,9 @@ public class AkakariSyutsugekiLogReader {
     private static Map<Date,AkakariSyutsugekiLog> startPortDateToLogCache = Collections.synchronizedMap(new AkakariCacheMap<>(4));
     private static Map<Date,AkakariSyutsugekiLog> startPortDateToNextLogCache = Collections.synchronizedMap(new AkakariCacheMap<>(4));
     private static Map<Path,AkakariSyutsugekiLog[]> zstdFilePathToLogArrayCache = Collections.synchronizedMap(new AkakariCacheMap<>(1));
+
+    private static Map<String,AkakariSyutsugekiLogDateCacheBody> akakariSyutsugekiLogDateCache = Collections.synchronizedMap(new HashMap<>());
+
 
     public  static Boolean needConvert(){
         List<Path> fileListOld = AkakariSyutsugekiLogRecorder.allFilePathOld();
@@ -175,6 +179,15 @@ public class AkakariSyutsugekiLogReader {
     public static void loadAllStartPortDate(){
         List<Path> fileListRaw = AkakariSyutsugekiLogRecorder.allFilePathRaw();
         List<Path> fileList = AkakariSyutsugekiLogRecorder.allFilePathWithoutRaw();
+        File oldCache = new File(AkakariSyutsugekiLogRecorder.syutsugekiLogPathDateCache);
+        if(oldCache.exists()){
+            try {
+                FileUtils.deleteDirectory(oldCache);
+            }
+            catch (Exception e){
+                LOG.get().warn("old cache delete error", e);
+            }
+        }
         String lastDate = null;
         if(fileListRaw != null){
             for(Path path:fileListRaw){
@@ -196,20 +209,16 @@ public class AkakariSyutsugekiLogReader {
             }
         }
         if(fileList != null) {
+            AkakariSyutsugekiLogDateCache2 cacheData = AkakariMapper.readDateCacheFromMessageZstdFile(new File(AkakariSyutsugekiLogRecorder.syutsugekiLogPathDateCache2));
+            if(cacheData != null){
+                akakariSyutsugekiLogDateCache.putAll(cacheData.map);
+            }
             fileList
                 .parallelStream()
                 .forEach(path -> {
-                    Path cachePath = AkakariSyutsugekiLogRecorder.zstdToCachePath(path);
-                    byte[] digest = null;
-                    try {
-                        MessageDigest sha_256 = MessageDigest.getInstance("SHA-256");
-                        digest = sha_256.digest(Files.readAllBytes(path));
-                    }
-                    catch (Exception e){
-                        LOG.get().warn("hash load failed"+path.getFileName().toString(), e);
-                    }
-                    AkakariSyutsugekiLogDateCache cache = AkakariMapper.readDateCacheFromMessageRawFile(cachePath.toFile());
-                    if(digest != null && cache != null && cache.hash != null && Arrays.equals(digest,cache.hash)){
+                    File file = path.toFile();
+                    AkakariSyutsugekiLogDateCacheBody cache = akakariSyutsugekiLogDateCache.get(file.getName());
+                    if(cache != null && cache.lastModified == file.lastModified()){
                         if(cache.startPortDateArray != null){
                             Collections.addAll(startPortDateList,cache.startPortDateArray);
                         }
@@ -227,19 +236,17 @@ public class AkakariSyutsugekiLogReader {
                             }
                         }
                         startPortDateList.addAll(list);
-
-                        if(digest != null){
-                            AkakariSyutsugekiLogDateCache c =new AkakariSyutsugekiLogDateCache();
-                            c.hash = digest;
-                            c.startPortDateArray = list.toArray(new Date[list.size()]);
-                            File dir2 = cachePath.getParent().toFile();
-                            if(!dir2.exists()){
-                                dir2.mkdirs();
-                            }
-                            AkakariMapper.writeObjectToMessageRawFile(c,cachePath.toFile());
-                        }
+                        AkakariSyutsugekiLogDateCacheBody c =new AkakariSyutsugekiLogDateCacheBody();
+                        c.lastModified = file.lastModified();
+                        c.startPortDateArray = list.toArray(new Date[list.size()]);
+                        akakariSyutsugekiLogDateCache.put(file.getName(),c);
                     }
                 });
+            if(cacheData == null){
+                cacheData = new AkakariSyutsugekiLogDateCache2();
+            }
+            cacheData.map = akakariSyutsugekiLogDateCache;
+            AkakariMapper.writeObjectToMessageZstdFile(cacheData,new File(AkakariSyutsugekiLogRecorder.syutsugekiLogPathDateCache2));
         }
         Collections.sort(startPortDateList);
     }
