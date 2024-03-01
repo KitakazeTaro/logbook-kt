@@ -135,12 +135,12 @@ public class BattleAtackDto {
             }
             int length = flatten_df_list.size();
             int type = (at_type != null)?at_type[i]:0;
-            if(100 <= type && type <= 104){
+            if(100 <= type && type <= 104 || type == 400 || type == 401){
                 for(int c = 0; c < length; c++){
                     int at2 =
                         (type == 100 && c == 1)?at + 2
                         :(type == 100 && c == 2)?at + 4
-                        :((type == 101 || type == 102) && c == 2)?at + 1
+                        :((type == 101 || type == 102 || type == 400 || type == 401) && c == 2)?at + 1
                         :(type == 103 || type == 104)?at+c
                         :at;
                     BattleAtackDto dto = new BattleAtackDto();
@@ -883,6 +883,20 @@ public class BattleAtackDto {
                 return  "いくわよ主砲一斉射";
             case 103:
                 return "コロラド特殊攻撃";
+            case 200:
+                return "瑞雲立体攻撃"
+            case 201:
+                return "海空立体攻撃"
+            case 300:
+                return "潜水艦隊攻撃";
+            case 301:
+                return "潜水艦隊攻撃";
+            case 302:
+                return "潜水艦隊攻撃";
+            case 400:
+                return "大和タッチ3隻";
+            case 401:
+                return "大和タッチ2隻";
         }
         return "不明(" + this.type + ")";
     }
@@ -909,6 +923,18 @@ public class BattleAtackDto {
                 return "カットイン(駆逐 主砲/魚雷/電探)";
             case 8:
                 return "カットイン(駆逐 魚雷/見張員/電探)";
+            case 9:
+                return "カットイン(駆逐 魚雷/水雷見張員/魚雷)";
+            case 10:
+                return "カットイン(駆逐 魚雷/水雷見張員/ドラム缶)";
+            case 11:
+                return "カットイン(駆逐 主砲/魚雷/電探)2hit";
+            case 12:
+                return "カットイン(駆逐 魚雷/見張員/電探)2hit";
+            case 13:
+                return "カットイン(駆逐 魚雷/水雷見張員/魚雷)2hit";
+            case 14:
+                return "カットイン(駆逐 魚雷/水雷見張員/ドラム缶)2hit";
             case 100:
                 return  "ネルソンタッチ";
             case 101:
@@ -919,6 +945,18 @@ public class BattleAtackDto {
                 return "コロラド特殊攻撃";
             case 104:
                 return "僚艦夜戦突撃";
+            case 200:
+                return "夜間瑞雲夜戦カットイン";
+            case 300:
+                return "潜水艦隊攻撃";
+            case 301:
+                return "潜水艦隊攻撃";
+            case 302:
+                return "潜水艦隊攻撃";
+            case 400:
+                return "大和タッチ3隻";
+            case 401:
+                return "大和タッチ2隻";
         }
         return "不明(" + this.type + ")";
     }
