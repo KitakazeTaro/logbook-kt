@@ -220,17 +220,17 @@ private fun AkakariRaigekiRowBodyConstructEC(
 )
 {
     if(attackList == null){ return }
-    val api_raigeki = arg.dayPhaseOrNull?.tree?.get(apiName) as? LinkedTreeMap<*,*>
-    if(api_raigeki == null){ return }
+    val api_opening_atack = arg.dayPhaseOrNull?.tree?.get(apiName) as? LinkedTreeMap<*,*>
+    if(api_opening_atack == null){ return }
     val prevHP = startHP
-    val api_frai = GsonUtil.toIntArray(api_raigeki["api_frai"])
-    val api_erai = GsonUtil.toIntArray(api_raigeki["api_erai"])
-    val api_fdam = GsonUtil.toDoubleArray(api_raigeki["api_fdam"])
-    val api_edam = GsonUtil.toDoubleArray(api_raigeki["api_edam"])
-    val api_fydam = GsonUtil.toIntArray(api_raigeki["api_fydam"])
-    val api_eydam = GsonUtil.toIntArray(api_raigeki["api_eydam"])
-    val api_fcl = GsonUtil.toIntArray(api_raigeki["api_fcl"])
-    val api_ecl = GsonUtil.toIntArray(api_raigeki["api_ecl"])
+    val api_frai = GsonUtil.toIntArray(api_opening_atack["api_frai_list_item"])
+    val api_erai = GsonUtil.toIntArray(api_opening_atack["api_erai_list_item"])
+    val api_fdam = GsonUtil.toDoubleArray(api_opening_atack["api_fdam"])
+    val api_edam = GsonUtil.toDoubleArray(api_opening_atack["api_edam"])
+    val api_fydam = GsonUtil.toIntArray(api_opening_atack["api_fydam_list_item"])
+    val api_eydam = GsonUtil.toIntArray(api_opening_atack["api_eydam_list_item"])
+    val api_fcl = GsonUtil.toIntArray(api_opening_atack["api_fcl_list_item"])
+    val api_ecl = GsonUtil.toIntArray(api_opening_atack["api_ecl_list_item"])
     val dayPhaseRow = DamageDayRowBody(arg)
     if(arg.isSplitHp){
         for (i in 0..12) {
