@@ -50,7 +50,7 @@ fun ArrayList<IntArray>.createFriendlyAttackHP(attackList: List<BattleAtackDto>,
     var afterNelsonTouch = false
     for (attack in attackList) {
         val type = attack.type
-        val isNelsonTouch = (100 <= type) && (type <= 104)
+        val isNelsonTouch = (100 <= type) && (type <= 104) || (type == 400) || (type == 401)
         if(!afterNelsonTouch) {
             array = ArrayList<ArrayList<IntArray>>()
         }
@@ -96,7 +96,7 @@ fun ArrayList<IntArray>.createAttackHP(attackList: List<BattleAtackDto>,battle:B
     var afterNelsonTouch = false
     for (attack in attackList) {
         val type = attack.type
-        val isNelsonTouch = (100 <= type) && (type <= 104)
+        val isNelsonTouch = (100 <= type) && (type <= 104) || (type == 400) || (type == 401)
         if(!afterNelsonTouch) {
             array = ArrayList<ArrayList<IntArray>>()
         }
